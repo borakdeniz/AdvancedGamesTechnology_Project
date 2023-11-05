@@ -11,7 +11,7 @@ bool engine::application::s_running{ true };
 bool engine::application::s_minimized{ false }; 
 
 //----------------------------------------------------------------------------- 
-
+ 
 engine::application::application()
 {
     CORE_ASSERT(!s_instance, "Application already exists!");

@@ -1,10 +1,22 @@
 #include "example_layer.h"
 #include "platform/opengl/gl_shader.h"
 
+#include "pickup.h"
 #include <glm/gtc/matrix_transform.hpp> // glm::translate, glm::rotate, glm::scale, glm::perspective
 #include <glm/gtc/type_ptr.hpp>
 #include "engine/events/key_event.h"
 #include "engine/utils/track.h"
+
+
+template<typename T, typename O>
+void render_object(glm::vec3& object_location, O& m_object, const T& mesh_shader)
+{
+	glm::mat4 object_transform(1.0f);
+	object_transform = glm::translate(object_transform, object_location);
+	object_transform = glm::rotate(object_transform, m_object->rotation_amount(), m_object->rotation_axis());
+	object_transform = glm::scale(object_transform, m_object->scale());
+	engine::renderer::submit(mesh_shader, object_transform, m_object);
+}
 
 example_layer::example_layer() 
     :m_2d_camera(-1.6f, 1.6f, -0.9f, 0.9f), 
@@ -133,19 +145,32 @@ example_layer::example_layer()
 	m_text_manager = engine::text_manager::create();
 
 	m_skinned_mesh->switch_animation(1);
+
+	// Adding a pick up
+	// Medkit texture from https://www.textures.com/download/manmadeboxes0007/105116
+	engine::ref<engine::cuboid> pickup_shape = engine::cuboid::create(glm::vec3(0.5f), false);
+	engine::ref<engine::texture_2d> pickup_texture = engine::texture_2d::create("assets/textures/medkit.jpg", true);
+	engine::game_object_properties pickup_props;
+	pickup_props.position = { 5.f, 1.f, 5.f };
+	pickup_props.meshes = { pickup_shape->mesh() };
+	pickup_props.textures = { pickup_texture };
+	m_pickup = pickup::create(pickup_props);
+	m_pickup->init();
 }
 
 example_layer::~example_layer() {}
 
 void example_layer::on_update(const engine::timestep& time_step) 
 {
-    m_3d_camera.on_update(time_step);
+	m_3d_camera.on_update(time_step);
 
 	m_physics_manager->dynamics_world_update(m_game_objects, double(time_step));
 
 	m_mannequin->animated_mesh()->on_update(time_step);
 
 	m_audio_manager->update_with_camera(m_3d_camera);
+
+	m_pickup->update(m_3d_camera.position(), time_step);
 
 	check_bounce();
 } 
@@ -173,21 +198,64 @@ void example_layer::on_render()
 
 	engine::renderer::submit(mesh_shader, m_terrain);
 
-	glm::mat4 tree_transform(1.0f);
-	tree_transform = glm::translate(tree_transform, glm::vec3(4.f, 0.5, -5.0f));
-	tree_transform = glm::rotate(tree_transform, m_tree->rotation_amount(), m_tree->rotation_axis());
-	tree_transform = glm::scale(tree_transform, m_tree->scale());
-	engine::renderer::submit(mesh_shader, tree_transform, m_tree);
+	// Rendering a forest
+	float x = 0.f, y = 0.5f, z = 2.f; // Tree location parameters
+	for (int j = 0; j < 10; j++)
+	{
+		x = 0.f;
+		z += 2.f;
+		for (int i = 0; i < 10; i++)
+		{
+			glm::vec3 tree_location = glm::vec3(x, y, z);
+			render_object(tree_location, m_tree, mesh_shader);
+			x += 2.f;
+		}
+	}
 
 	glm::vec3 cow_location = glm::vec3(0.f, 0.5f, 0.f);
-	for (int i = 0; i < 3; i++)
-	{
-		glm::mat4 cow_transform(1.0f);
-		cow_transform = glm::translate(cow_transform, cow_location);
-		cow_transform = glm::rotate(cow_transform, m_cow->rotation_amount(), m_cow->rotation_axis());
-		cow_transform = glm::scale(cow_transform, m_cow->scale());
-		engine::renderer::submit(mesh_shader, cow_transform, m_cow);
+	glm::vec3 c = m_3d_camera.position();
+	glm::vec3 v = c - cow_location;
+
+	float theta = atan2(v.x, v.z);
+
+	// Calculate the rotation axis
+	glm::vec3 target(0.0f, 0.0f, 1.0f);
+	glm::vec3 rotation_axis = glm::cross(target, v);
+
+	// Calculate the rotation angle in degrees
+	float dot_product = glm::dot(target, v);
+	float magnitudes = glm::length(target) * glm::length(v);
+	float rotation_angle = glm::degrees(acos(dot_product / magnitudes));
+
+	// Reset the cow's transform matrix to identity to avoid cumulative rotations
+	glm::mat4 cow_transform(1.0f);
+
+	// Apply the rotation to orient the cow towards the camera
+	cow_transform = glm::rotate(cow_transform, rotation_angle, rotation_axis);
+
+	// Apply translation and scaling as needed
+	cow_transform = glm::translate(cow_transform, cow_location);
+	cow_transform = glm::scale(cow_transform, m_cow->scale());
+
+	// Render the cow with the updated transform
+	engine::renderer::submit(mesh_shader, cow_transform, m_cow);
+
+	// Cow gone rogue, can't fix it
+
+	
+
+	if (m_pickup->active()) {
+		std::dynamic_pointer_cast<engine::gl_shader>(mesh_shader)->set_uniform("has_texture", true);
+		m_pickup->textures().at(0)->bind();
+		m_pickup->set_position(glm::vec3(-2.f, 1.5f, -2.f));
+		glm::mat4 pickup_transform(1.0f);
+		pickup_transform = glm::translate(pickup_transform, m_pickup->position());
+		pickup_transform = glm::rotate(pickup_transform, m_pickup->rotation_amount(), m_pickup->rotation_axis());
+		engine::renderer::submit(mesh_shader, m_pickup->meshes().at(0), pickup_transform);
+		std::dynamic_pointer_cast<engine::gl_shader>(mesh_shader)->set_uniform("has_texture", false);
 	}
+
+
 	
 	m_material->submit(mesh_shader);
 	engine::renderer::submit(mesh_shader, m_ball);
