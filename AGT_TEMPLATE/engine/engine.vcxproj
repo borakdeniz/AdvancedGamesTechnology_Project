@@ -547,6 +547,7 @@ IF EXIST ..\engine\external\FMOD\lib\x64\fmod.dll\ (xcopy /Q /E /Y /I ..\engine\
     <ClInclude Include="src\engine\entities\shapes\cuboid.h" />
     <ClInclude Include="src\engine\entities\shapes\heightmap.h" />
     <ClInclude Include="src\engine\entities\shapes\sphere.h" />
+    <ClInclude Include="src\engine\entities\shapes\tetrahedron.h" />
     <ClInclude Include="src\engine\entities\skybox.h" />
     <ClInclude Include="src\engine\entities\terrain.h" />
     <ClInclude Include="src\engine\events\application_event.h" />
@@ -638,6 +639,7 @@ IF EXIST ..\engine\external\FMOD\lib\x64\fmod.dll\ (xcopy /Q /E /Y /I ..\engine\
     <ClCompile Include="src\platform\windows\win_core.cpp" />
     <ClCompile Include="src\platform\windows\win_input.cpp" />
     <ClCompile Include="src\platform\windows\win_window.cpp" />
+    <ClCompile Include="tetrahedron.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="external\FMOD\include\fmod.cs" />

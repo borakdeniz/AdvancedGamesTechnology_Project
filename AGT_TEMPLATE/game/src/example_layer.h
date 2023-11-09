@@ -1,5 +1,6 @@
 #pragma once
 #include <engine.h>
+#include "player.h"
 
 class pickup;
 
@@ -22,9 +23,14 @@ private:
 	engine::ref<engine::game_object>	m_tree{};
 	engine::ref<engine::game_object>	m_ball{};
 	engine::ref<engine::game_object>	m_mannequin{};
+	engine::ref<engine::game_object>	m_jeep{};
+	engine::ref<engine::game_object>	m_tetrahedron{};
+
+	player								m_player{};
 
 	engine::ref<engine::material>		m_material{};
 	engine::ref<engine::material>		m_mannequin_material{};
+	engine::ref<engine::material>		m_tetrahedron_material{};
 
 	engine::DirectionalLight            m_directionalLight;
 

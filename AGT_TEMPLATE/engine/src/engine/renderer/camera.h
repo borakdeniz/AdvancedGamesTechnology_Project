@@ -120,6 +120,7 @@ namespace engine
             float near_z = 0.1f, float far_z = 100.f);
 
         void on_update(const timestep& timestep) override;
+        void update_rail(const timestep& ts);
 
         glm::vec3 position() const override { return m_position; }
         void position(const glm::vec3& pos) override { m_position = pos; update_view_matrix(); }
@@ -142,7 +143,8 @@ namespace engine
 
     private: 
         void process_mouse(float mouse_delta_x, float mouse_delta_y, bool constrain_pitch = true);
-        void move(e_direction direction, timestep ts); 
+        void move(e_direction direction, timestep ts);
+        void move_rail(e_direction direction, timestep ts);
         void rotate(e_rotation rotation, e_axis rotation_axis, timestep ts);
         void update_camera_vectors();
         void update_view_matrix(); 

@@ -59,12 +59,20 @@ example_layer::example_layer()
 	std::dynamic_pointer_cast<engine::gl_shader>(text_shader)->set_uniform("projection",
 		glm::ortho(0.f, (float)engine::application::window().width(), 0.f,
 		(float)engine::application::window().height()));
+
+
 	m_material = engine::material::create(1.0f, glm::vec3(1.0f, 0.1f, 0.07f),
 		glm::vec3(1.0f, 0.1f, 0.07f), glm::vec3(0.5f, 0.5f, 0.5f), 1.0f);
 
 	m_mannequin_material = engine::material::create(1.0f, glm::vec3(0.5f, 0.5f, 0.5f),
 		glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.5f, 0.5f, 0.5f), 1.0f);
 
+	// For materials, the parameters correspond to shininess, ambient colour, diffuse colour, specular colour and transparency. In that order.
+	m_tetrahedron_material = engine::material::create(32.0f,
+		glm::vec3(1.0f, 0.5f, 0.0f),
+		glm::vec3(1.0f, 0.5f, 0.0f),
+		glm::vec3(0.5f, 0.5f, 0.5f),
+		0.3f);
 
 	// Skybox texture from http://www.vwall.it/wp-content/plugins/canvasio3dpro/inc/resource/cubeMaps/
 	m_skybox = engine::skybox::create(50.f,
@@ -90,6 +98,8 @@ example_layer::example_layer()
 	mannequin_props.type = 0;
 	mannequin_props.bounding_shape = m_skinned_mesh->size() / 2.f * mannequin_props.scale.x;
 	m_mannequin = engine::game_object::create(mannequin_props);
+	m_player.initialise(m_mannequin);
+
 
 	// Load the terrain texture and create a terrain mesh. Create a terrain object. Set its properties
 	std::vector<engine::ref<engine::texture_2d>> terrain_textures = { engine::texture_2d::create("assets/textures/terrain.bmp", false) };
@@ -125,6 +135,17 @@ example_layer::example_layer()
 	tree_props.scale = glm::vec3(tree_scale);
 	m_tree = engine::game_object::create(tree_props);
 
+	// Load the Jeep model. Create a jeep object. Set its properties
+	engine::ref <engine::model> jeep_model = engine::model::create("assets/models/static/jeep1.3ds");
+	engine::game_object_properties jeep_props;
+	jeep_props.meshes = jeep_model->meshes();
+	jeep_props.textures = jeep_model->textures();
+	float jeep_scale = 0.125;
+	jeep_props.position = { -5.f,0.5f, 0.f };
+	jeep_props.scale = glm::vec3(jeep_scale);
+	jeep_props.bounding_shape = jeep_model->size() / 2.f * jeep_scale;
+	m_jeep = engine::game_object::create(jeep_props);
+
 	engine::ref<engine::sphere> sphere_shape = engine::sphere::create(10, 20, 0.5f);
 	engine::game_object_properties sphere_props;
 	sphere_props.position = { 0.f, 5.f, -5.f };
@@ -134,6 +155,21 @@ example_layer::example_layer()
 	sphere_props.restitution = 0.92f;
 	sphere_props.mass = 0.000001f;
 	m_ball = engine::game_object::create(sphere_props);
+
+	std::vector<glm::vec3> tetrahedron_vertices;
+	tetrahedron_vertices.push_back(glm::vec3(0.f, 10.f, 0.f));		//0
+	tetrahedron_vertices.push_back(glm::vec3(0.f, 0.f, 10.f));		//1
+	tetrahedron_vertices.push_back(glm::vec3(-10.f, 0.f, -10.f));	//2
+	tetrahedron_vertices.push_back(glm::vec3(10.f, 0.f, -10.f));	//3
+
+	engine::ref<engine::tetrahedron> tetrahedron_shape = engine::tetrahedron::create(tetrahedron_vertices);
+	engine::game_object_properties tetrahedron_props;
+	tetrahedron_props.position = { 0.f, 0.5f, -20.f };
+	tetrahedron_props.meshes = { tetrahedron_shape->mesh() };
+	std::vector<engine::ref<engine::texture_2d>> tetrahedron_textures = { engine::texture_2d::create("assets/textures/stone.bmp", false) };
+	tetrahedron_props.textures = tetrahedron_textures;
+	m_tetrahedron = engine::game_object::create(tetrahedron_props);
+
 
 	m_game_objects.push_back(m_terrain);
 	m_game_objects.push_back(m_ball);
@@ -166,11 +202,12 @@ void example_layer::on_update(const engine::timestep& time_step)
 
 	m_physics_manager->dynamics_world_update(m_game_objects, double(time_step));
 
-	m_mannequin->animated_mesh()->on_update(time_step);
-
 	m_audio_manager->update_with_camera(m_3d_camera);
 
 	m_pickup->update(m_3d_camera.position(), time_step);
+
+	m_player.on_update(time_step);
+	m_player.update_camera(m_3d_camera);
 
 	check_bounce();
 } 
@@ -200,17 +237,11 @@ void example_layer::on_render()
 
 	// Rendering a forest
 	float x = 0.f, y = 0.5f, z = 2.f; // Tree location parameters
-	for (int j = 0; j < 10; j++)
-	{
-		x = 0.f;
-		z += 2.f;
-		for (int i = 0; i < 10; i++)
-		{
-			glm::vec3 tree_location = glm::vec3(x, y, z);
-			render_object(tree_location, m_tree, mesh_shader);
-			x += 2.f;
-		}
-	}
+
+	glm::vec3 tree_location = glm::vec3(x, y, z);
+	render_object(tree_location, m_tree, mesh_shader);
+
+
 
 	glm::vec3 cow_location = glm::vec3(0.f, 0.5f, 0.f);
 	glm::vec3 c = m_3d_camera.position();
@@ -242,7 +273,13 @@ void example_layer::on_render()
 
 	// Cow gone rogue, can't fix it
 
-	
+	glm::mat4 jeep_transform(1.0f);
+	jeep_transform = glm::translate(jeep_transform, m_jeep->position());
+	jeep_transform = glm::rotate(jeep_transform, -glm::pi<float>()/2.0f, glm::vec3(1.0f, 0.0f, 0.0f));
+	jeep_transform = glm::scale(jeep_transform, m_jeep->scale());
+	engine::renderer::submit(mesh_shader, jeep_transform, m_jeep);
+
+
 
 	if (m_pickup->active()) {
 		std::dynamic_pointer_cast<engine::gl_shader>(mesh_shader)->set_uniform("has_texture", true);
@@ -261,7 +298,10 @@ void example_layer::on_render()
 	engine::renderer::submit(mesh_shader, m_ball);
 
 	m_mannequin_material->submit(mesh_shader);
-	engine::renderer::submit(mesh_shader, m_mannequin);
+	engine::renderer::submit(mesh_shader, m_player.object());
+
+	m_tetrahedron_material->submit(mesh_shader);
+	engine::renderer::submit(mesh_shader, m_tetrahedron);
 
     engine::renderer::end_scene();
 

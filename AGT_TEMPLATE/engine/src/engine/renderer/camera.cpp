@@ -69,7 +69,7 @@ engine::perspective_camera::perspective_camera(
     m_near_plane(near_z), 
     m_far_plane(far_z) 
 { 
-    m_position = glm::vec3(0.0f, 1.0f, 3.0f);  
+    m_position = glm::vec3(0.0f, 2.0f, 20.0f);  
     m_front_vector = glm::vec3(0.0f, 0.0f, -1.0f);
     m_up_vector = glm::vec3(0.0f, 1.0f,  0.0f);
     m_view_mat = glm::lookAt(m_position, m_position + m_front_vector, m_up_vector);
@@ -92,21 +92,40 @@ void engine::perspective_camera::on_update(const timestep& timestep)
 {
 	auto [mouse_delta_x, mouse_delta_y] = input::mouse_position();
 	process_mouse(mouse_delta_x, mouse_delta_y);
+    //update_rail(timestep);
 
 	update_camera_vectors();
 
+    //float y_value = m_position.y;
+
     if(input::key_pressed(engine::key_codes::KEY_A)) // left
         move(e_direction::left, timestep);
+    // update_rail(timestep);
     else if(input::key_pressed(engine::key_codes::KEY_D)) // right
         move(e_direction::right, timestep);
+    // update_rail(timestep);
 
     if(input::key_pressed(engine::key_codes::KEY_S)) // down
         move(e_direction::backward, timestep);
+    // update_rail(timestep);
     else if(engine::input::key_pressed(engine::key_codes::KEY_W)) // up
         move(e_direction::forward, timestep);
 
+    m_position.x = glm::clamp(m_position.x, -5.0f, 5.0f);
+    m_position.y = glm::clamp(m_position.y, 1.0f, 11.0f);
+
+    // update_rail(timestep);
+
+    //m_position.y = y_value;
+
+
     //float delta = input::mouse_scroll();
     //process_mouse_scroll(delta);
+}
+
+void engine::perspective_camera::update_rail(const timestep& ts)
+{
+    m_position.z -= s_movement_speed * ts;
 }
 
 const glm::mat4& engine::perspective_camera::projection_matrix() const 
@@ -157,7 +176,21 @@ void engine::perspective_camera::move(e_direction direction, timestep ts)
         m_position += s_movement_speed * ts * m_right_vector;
 
     //LOG_CORE_TRACE("3d cam position: [{},{},{}]", m_position.x, m_position.y, m_position.z); 
-} 
+}
+void engine::perspective_camera::move_rail(e_direction direction, timestep ts)
+{
+    if (direction == forward)
+        m_position += s_movement_speed * ts * m_up_vector;
+    else if (direction == backward)
+        m_position -= s_movement_speed * ts * m_up_vector;
+
+    if (direction == left)
+        m_position -= s_movement_speed * ts * m_right_vector;
+    else if (direction == right)
+        m_position += s_movement_speed * ts * m_right_vector;
+
+}
+
 
 void engine::perspective_camera::rotate(e_rotation rotation, e_axis rotation_axis, timestep ts) 
 { 
